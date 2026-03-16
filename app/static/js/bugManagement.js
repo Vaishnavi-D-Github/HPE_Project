@@ -2,15 +2,12 @@
  * bugManagement.js
  * Used by BOTH Manager (bugManagement.html) and Engineer (engineerBugManagement.html).
  *
- * Key changes vs original:
- *   - generateBugsTableRows() now emits TWO <tr> per bug:
- *       1. Collapsed row with a "N Tests ▼" clickable badge
- *       2. Hidden expansion row with test sub-table + ML Analysis panel
- *   - toggleBugExpand()      — open/close expand row, fetch tests once
- *   - fetchAndRenderTests()  — GET /api/bugs/<id>/tests
- *   - toggleMLAnalysis()     — show/hide ML panel
- *   - loadMLAnalysis()       — GET /api/bugs/<id>/analysis
- *   - runBugNow() / scheduleBug() / updateResourceGroup() — wired to buttons
+ * Table columns: PRIORITY | BUG ID | ENGINEER | TESTS | ACTION
+ * (Summary, Stations, Station Config, Resource Group removed)
+ *
+ * Each bug row expands to show:
+ *   - Test sub-table (test name, station, nodes, ring, build)
+ *   - ML Analysis panel (repro actions, config changes, repro readiness, summary)
  */
 
 const API_BASE = '';
@@ -196,21 +193,11 @@ function renderStats(stats) {
 }
 
 /* ── Renderers: Bug Tables ── */
-function generateBadgesHtml(items, type) {
-    if (!items || !items.length) return '';
-    const badgeClass  = type === 'test' ? 'badge--blue' : 'badge--yellow';
-    const MAX_ITEMS   = 2;
-    const visible     = items.slice(0, MAX_ITEMS);
-    const hiddenCount = items.length - MAX_ITEMS;
-    let html = visible.map(item => `<span class="badge ${badgeClass}">${escapeHtml(item)}</span>`).join('');
-    if (hiddenCount > 0) html += `<span class="badge badge--gray">+${hiddenCount}</span>`;
-    return html;
-}
 
 /**
- * Builds TWO <tr> elements for one bug:
- *   1. Collapsed row with "N Tests ▼" badge
- *   2. Hidden expansion row with test sub-table + ML Analysis panel
+ * Builds TWO <tr> elements per bug:
+ *   1. Collapsed row: PRIORITY | BUG ID | ENGINEER | TESTS badge | ACTION
+ *   2. Hidden expansion row: test sub-table + ML Analysis panel
  */
 function generateBugRowHtml(bug) {
     const bugId     = escapeHtml(bug.id);
@@ -228,13 +215,14 @@ function generateBugRowHtml(bug) {
             <span class="priority-badge ${pClass}">${escapeHtml(bug.priority || 'P2')}</span>
         </td>
         <td class="bug-id-cell">${bugId}</td>
-        <td class="engineer-cell">
-            <div class="engineer-avatar" style="background:${escapeHtml(bug.engineer.color)}">
-                ${escapeHtml(bug.engineer.initials)}
+        <td>
+            <div class="engineer-cell">
+                <div class="engineer-avatar" style="background:${escapeHtml(bug.engineer.color)}">
+                    ${escapeHtml(bug.engineer.initials)}
+                </div>
+                <span class="engineer-name">${escapeHtml(bug.engineer.name)}</span>
             </div>
-            <span class="engineer-name">${escapeHtml(bug.engineer.name)}</span>
         </td>
-        <td class="summary-cell">${escapeHtml(bug.summary || 'No summary')}</td>
         <td>
             <span style="background:#eff6ff;color:#2563eb;padding:4px 10px;border-radius:6px;
                          font-size:11.5px;font-weight:600;cursor:pointer;
@@ -246,20 +234,6 @@ function generateBugRowHtml(bug) {
                     <polygon points="2,4 10,4 6,9" fill="#2563eb"/>
                 </svg>
             </span>
-        </td>
-        <td>
-            <div class="stations-cell">
-                ${(bug.stations || []).map(s =>
-                    `<span class="badge badge--yellow">${escapeHtml(s)}</span>`
-                ).join('')}
-            </div>
-        </td>
-        <td class="config-cell">${escapeHtml(bug.config || '—')}</td>
-        <td>
-            <input type="text" class="resource-input"
-                   placeholder="Enter group..."
-                   value="${escapeHtml(bug.resourceGroup || '')}"
-                   onchange="updateResourceGroup('${bugId}', this.value)" />
         </td>
         <td>
             <div class="action-cell">
@@ -286,7 +260,7 @@ function generateBugRowHtml(bug) {
 
     const expandRow = `
     <tr id="expand-${bugId}" style="display:none;">
-        <td colspan="9" style="padding:0;background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+        <td colspan="5" style="padding:0;background:#f8fafc;border-bottom:2px solid #e2e8f0;">
             <div style="padding:16px 24px;">
                 <div id="tests-content-${bugId}">
                     <span style="color:#94a3b8;font-size:13px;">Loading tests…</span>
@@ -318,10 +292,6 @@ function renderBugs(reproBugs, testBugs) {
 
 /* ── Expandable Row Logic ── */
 
-/**
- * Called when "N Tests ▼" badge is clicked.
- * Toggles expansion row; fetches data only on first open.
- */
 async function toggleBugExpand(bugId, badgeEl) {
     const expandRow = document.getElementById(`expand-${bugId}`);
     if (!expandRow) return;
@@ -351,7 +321,6 @@ async function toggleBugExpand(bugId, badgeEl) {
     }
 }
 
-/** Fetches GET /api/bugs/<bugId>/tests and renders sub-table */
 async function fetchAndRenderTests(bugId, testsDiv) {
     try {
         const res = await apiFetch(`/api/bugs/${bugId}/tests`);
@@ -409,14 +378,12 @@ async function fetchAndRenderTests(bugId, testsDiv) {
     }
 }
 
-/** Shows/hides ML Analysis panel */
 function toggleMLAnalysis(bugId) {
     const div = document.getElementById(`analysis-content-${bugId}`);
     if (!div) return;
     div.style.display = div.style.display === 'none' ? 'block' : 'none';
 }
 
-/** Fetches GET /api/bugs/<bugId>/analysis and renders ML panel */
 async function loadMLAnalysis(bugId, div) {
     try {
         const res = await apiFetch(`/api/bugs/${bugId}/analysis`);
@@ -467,19 +434,8 @@ async function scheduleBug(bugId) {
     await loadBugsData();
 }
 
-async function updateResourceGroup(bugId, value) {
-    await apiFetch(`/api/bugs/${bugId}/resource`, {
-        method: 'PATCH',
-        body: JSON.stringify({ resourceGroup: value }),
-    });
-}
-
 /* ── Dynamic Search ── */
 let searchDebounceTimer = null;
-
-function getSearchWorkgroupId() {
-    return activeWorkgroupId;
-}
 
 function highlightMatch(text, query) {
     if (!query) return escapeHtml(text);

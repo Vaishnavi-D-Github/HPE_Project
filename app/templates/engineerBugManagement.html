@@ -57,7 +57,6 @@
             </div>
         </div>
         <div class="navbar-right" id="profileDropdownTrigger">
-            <!-- Dynamic: avatar initials, name, role populated by JS -->
             <div class="user-avatar loading-pulse" id="userAvatar"></div>
             <div class="user-info">
                 <span class="user-name loading-text" id="userName"></span>
@@ -88,8 +87,8 @@
     <main class="dashboard">
         <!-- Header Section -->
         <section class="page-header">
-            <h1 class="page-title">Bug Management</h1>
-            <p class="page-subtitle">Manage repro and test bugs, assign resource groups, and schedule test runs</p>
+            <h1 class="page-title">My Bugs</h1>
+            <p class="page-subtitle">View and manage your assigned repro and test bugs</p>
         </section>
 
         <!-- Search Bar -->
@@ -99,8 +98,9 @@
                 <circle cx="7.33333" cy="7.33333" r="5.33333" />
                 <path d="M14 14L11.1 11.1" />
             </svg>
-              <input type="text" id="searchInput" class="search-input" placeholder="Search by bug ID, engineer, tests, or stations..." />
-              <div id="searchDropdown" class="search-dropdown hidden"></div>
+            <input type="text" id="searchInput" class="search-input"
+                placeholder="Search by bug ID, engineer, or tests..." autocomplete="off" />
+            <div id="searchDropdown" class="search-dropdown hidden"></div>
         </div>
 
         <div class="ownership-filter hidden" id="ownershipFilter">
@@ -165,11 +165,7 @@
                                 <th>PRIORITY</th>
                                 <th>BUG ID</th>
                                 <th>ENGINEER</th>
-                                <th>SUMMARY</th>
                                 <th>TESTS</th>
-                                <th>STATIONS</th>
-                                <th>STATION CONFIG</th>
-                                <th>RESOURCE GROUP</th>
                                 <th>ACTION</th>
                             </tr>
                         </thead>
@@ -208,11 +204,7 @@
                                 <th>PRIORITY</th>
                                 <th>BUG ID</th>
                                 <th>ENGINEER</th>
-                                <th>SUMMARY</th>
                                 <th>TESTS</th>
-                                <th>STATIONS</th>
-                                <th>STATION CONFIG</th>
-                                <th>RESOURCE GROUP</th>
                                 <th>ACTION</th>
                             </tr>
                         </thead>
