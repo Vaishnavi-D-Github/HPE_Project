@@ -5,7 +5,7 @@ from flask import Flask, jsonify, request
  
 app = Flask(__name__)
  
-MOCK_BUGS_FILE = os.path.join("C://Users//Vaishnavi D//Documents//Projects//Repro_and_Reservation_Orchestrator//mock//mock_bugs.json")
+MOCK_BUGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mock_bugs.json")
  
  
 def load_mock_bugs():
@@ -156,7 +156,7 @@ def chathpe_chatlite():
     return jsonify({"message": analysis})
  
  
-if __name__ == "_main_":
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Mock Bugzilla REST API server")
     parser.add_argument("--port", type=int, default=5000, help="Port to listen on (default: 5000)")
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind to (default: 127.0.0.1)")
