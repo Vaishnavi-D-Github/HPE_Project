@@ -1,3 +1,22 @@
+"""
+mock_api_server.py
+------------------
+A local Flask server that mimics the Bugzilla REST API used by the real system.
+External users run this server so that bug_info.py --mock makes real HTTP calls
+to a local endpoint, exercising the full integration path.
+ 
+Endpoints (mirrors the real Bugzilla REST API structure):
+  GET  /rest/login?login=<user>&password=<pass>  -> returns a mock token
+  GET  /rest/bug?token=<token>&version=<version> -> returns bug list from mock_bugs.json
+ 
+Usage:
+  python3 mock_api_server.py            # starts on http://localhost:5000
+  python3 mock_api_server.py --port 8080
+ 
+Then in another terminal:
+  python3 bug_info.py 3.3.1.648 engineer.txt --mock
+"""
+ 
 import argparse
 import json
 import os
@@ -5,6 +24,7 @@ from flask import Flask, jsonify, request
  
 app = Flask(__name__)
  
+# Path to mock data file (same directory as this script)
 MOCK_BUGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mock_bugs.json")
  
  
@@ -134,22 +154,22 @@ def chathpe_chatlite():
     bug_id = bug_id_match.group(1) if bug_id_match else "UNKNOWN"
  
     # Extract test name if present in the prompt for a more realistic mock
-    test_match = _re.search(r"Test Name.?:\s(\S+)", user_query)
+    test_match = _re.search(r"Test Name.*?:\s*(\S+)", user_query)
     test_name = test_match.group(1) if test_match else "N/A"
  
     analysis = (
-        f"*Bug {bug_id} – Mock Analysis*\n\n"
-        f"1. *Failure Signature*: The test {test_name} failed during the execution "
+        f"**Bug {bug_id} – Mock Analysis**\n\n"
+        f"1. **Failure Signature**: The test `{test_name}` failed during the execution "
         f"phase, indicating a potential timing or resource-contention issue in the "
         f"affected component.\n\n"
-        f"2. *Key Engineer Findings*: Engineers have identified that the failure is "
+        f"2. **Key Engineer Findings**: Engineers have identified that the failure is "
         f"intermittent and correlates with high-load conditions. Logs show an unexpected "
         f"state transition that should be investigated further.\n\n"
-        f"3. *Reproduction Steps / Config Changes*: To reproduce, use the same test ring "
+        f"3. **Reproduction Steps / Config Changes**: To reproduce, use the same test ring "
         f"and build version noted in the metadata. Ensure the cluster configuration matches "
         f"the original setup (number of nodes and controller types). No additional "
         f"information is required to proceed with reproduction.\n\n"
-        f"(This is a mock response from the local test server.)"
+        f"*(This is a mock response from the local test server.)*"
     )
  
     print(f"[mock ChatHPE] POST /v2.8/call/chatlite  bug_id={bug_id}")
