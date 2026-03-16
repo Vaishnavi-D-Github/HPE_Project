@@ -4,3 +4,5 @@ from .workgroupAssignment import WorkgroupAssignment
 from .bug import Bug
 from .bug_tests import BugTest
 from .bug_stations import BugStation
+from .bug_comments import BugComment
+from .ml_analysis import MLAnalysis

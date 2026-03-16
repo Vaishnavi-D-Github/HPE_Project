@@ -68,3 +68,16 @@ class Bug(db.Model):
         back_populates="bug",
         cascade="all, delete-orphan"
     )
+
+    comments = db.relationship(
+        "BugComment",
+        back_populates="bug",
+        cascade="all, delete-orphan"
+    )
+
+    ml_analysis = db.relationship(
+        "MLAnalysis",
+        back_populates="bug",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )

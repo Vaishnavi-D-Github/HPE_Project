@@ -5,8 +5,6 @@ from app.routes.auth import auth
 from app.routes.managerDashboard import manager
 from app.routes.engineer import engineer
 from app.routes.bugDashboard import bug
-from app.staging_db import init_staging_db
- 
 
 def create_app():
     flask_app = Flask(__name__)
@@ -16,10 +14,6 @@ def create_app():
     login_manager.init_app(flask_app)
     migrate.init_app(flask_app, db)
     mail.init_app(flask_app)
-
-    import app.models.staged_bug
-    init_staging_db(flask_app)
-    
 
     login_manager.login_view = "auth.login_page"
 

@@ -2,7 +2,6 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.extensions import db
 from app.models.user import User
-from app.services.bug_sync import fetch_and_sync_bugs
 from app.auth_utils import (
     create_tab_auth_session,
     generate_reset_token,
@@ -32,11 +31,7 @@ def login():
 
             session['user_id'] = user.id
             session['role'] = user.role
-
-            try:
-                fetch_and_sync_bugs()
-            except Exception as e:
-                print(f"[Login] Bug sync failed (non-critical): {e}")
+            #  FIX 2: Make the session permanent and bind it tightly
             session.permanent = True
 
             auth_token = create_tab_auth_session(user)

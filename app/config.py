@@ -37,17 +37,3 @@ class Config:
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER")
     SERIALIZER_SECRET_KEY = os.getenv("SERIALIZER_SECRET_KEY", "fallback-secret-key")
-
-    BUG_API_BASE_URL = os.environ.get("BUG_API_BASE_URL", "http://127.0.0.1:5001")
-    BUG_API_USER     = os.environ.get("BUG_API_USER", "admin")
-    BUG_API_PASSWORD = os.environ.get("BUG_API_PASSWORD", "password")
-    BUG_API_VERSION  = os.environ.get("BUG_API_VERSION", "")
-
-    STAGING_DB_USER     = os.getenv("STAGING_DB_USER")
-    STAGING_DB_PASSWORD = quote_plus(os.getenv("STAGING_DB_PASSWORD", ""))
-    STAGING_DB_HOST     = os.getenv("STAGING_DB_HOST", "localhost")
-    STAGING_DB_NAME     = os.getenv("STAGING_DB_NAME", "rro_staging")
-
-    STAGING_DATABASE_URI = (
-        f"mysql+pymysql://{STAGING_DB_USER}:{STAGING_DB_PASSWORD}@{STAGING_DB_HOST}/{STAGING_DB_NAME}"
-    )
