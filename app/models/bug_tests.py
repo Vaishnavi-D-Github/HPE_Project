@@ -22,6 +22,7 @@ class BugTest(db.Model):
     number_of_nodes = db.Column(db.Integer)
     failure_type = db.Column(db.String(50))
     build_version = db.Column(db.String(50))
+    configuration = db.Column(db.String(50), nullable=True)
     nfs_path = db.Column(db.String(500))
     odin_link = db.Column(db.String(500))
     signature = db.Column(db.String(500))

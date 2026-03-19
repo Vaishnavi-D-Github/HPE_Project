@@ -2,6 +2,7 @@ import logging
 from logging.config import fileConfig
 
 from flask import current_app
+import sqlalchemy as sa
 
 from alembic import context
 
@@ -97,9 +98,29 @@ def run_migrations_online():
     connectable = get_engine()
 
     with connectable.connect() as connection:
+        metadata = get_metadata()
+        metadata_table_names_lc = {name.lower() for name in metadata.tables.keys()}
+        reflected_table_names_lc = {
+            name.lower() for name in sa.inspect(connection).get_table_names()
+        }
+
+        # Prevent false-positive create/drop table operations caused by
+        # case-only name differences (common with MySQL on Windows).
+        def include_object(object_, name, type_, reflected, compare_to):
+            if type_ == "table" and compare_to is None:
+                name_lc = (name or "").lower()
+                if reflected and name_lc in metadata_table_names_lc:
+                    return False
+                if (not reflected) and name_lc in reflected_table_names_lc:
+                    return False
+            return True
+
+        if conf_args.get("include_object") is None:
+            conf_args["include_object"] = include_object
+
         context.configure(
             connection=connection,
-            target_metadata=get_metadata(),
+            target_metadata=metadata,
             **conf_args
         )
 

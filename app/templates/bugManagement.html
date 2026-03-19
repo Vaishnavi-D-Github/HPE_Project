@@ -57,6 +57,7 @@
             </div>
         </div>
         <div class="navbar-right" id="profileDropdownTrigger">
+            <!-- Dynamic: avatar initials, name, role populated by JS -->
             <div class="user-avatar loading-pulse" id="userAvatar"></div>
             <div class="user-info">
                 <span class="user-name loading-text" id="userName"></span>
@@ -89,7 +90,7 @@
         <section class="page-header">
             <h1 class="page-title">Bug Management{% if workgroup %} - {{ workgroup.name }}{% endif %}</h1>
             <p class="page-subtitle">{% if workgroup %}Viewing bugs for workgroup: {{ workgroup.name }} (Release {{
-                workgroup.release_version }}){% else %}Manage repro and test bugs and schedule
+                workgroup.release_version }}){% else %}Manage repro and test bugs, assign resource groups, and schedule
                 test runs{% endif %}</p>
         </section>
 
@@ -101,7 +102,7 @@
                 <path d="M14 14L11.1 11.1" />
             </svg>
             <input type="text" id="searchInput" class="search-input"
-                placeholder="Search by bug ID, engineer, or tests..." autocomplete="off" />
+                placeholder="Search by bug ID, engineer, tests, or stations..." autocomplete="off" />
             <div id="searchDropdown" class="search-dropdown hidden"></div>
         </div>
 
@@ -160,9 +161,9 @@
                             <tr>
                                 <th>PRIORITY</th>
                                 <th>BUG ID</th>
+                                <th>BUG NAME</th>
                                 <th>ENGINEER</th>
                                 <th>TESTS</th>
-                                <th>ACTION</th>
                             </tr>
                         </thead>
                         <tbody id="reproBugsBody">
@@ -199,9 +200,9 @@
                             <tr>
                                 <th>PRIORITY</th>
                                 <th>BUG ID</th>
+                                <th>BUG NAME</th>
                                 <th>ENGINEER</th>
                                 <th>TESTS</th>
-                                <th>ACTION</th>
                             </tr>
                         </thead>
                         <tbody id="testBugsBody">
@@ -212,6 +213,131 @@
         </section>
 
     </main>
+
+    <!-- ───── CREATE WORKGROUP MODAL ───── -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal" id="createWorkgroupModal">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title">Create Workgroup</h2>
+                    <p class="modal-subtitle">Set up a new workgroup for your team</p>
+                </div>
+                <button class="modal-close" id="modalClose" type="button" aria-label="Close">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M5 5l10 10M15 5L5 15" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Step Indicators -->
+            <div class="steps-indicator">
+                <div class="step active" data-step="1">
+                    <span class="step-number">1</span>
+                    <span class="step-label">Name</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step" data-step="2">
+                    <span class="step-number">2</span>
+                    <span class="step-label">Release</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step" data-step="3">
+                    <span class="step-number">3</span>
+                    <span class="step-label">Engineers</span>
+                </div>
+            </div>
+
+            <!-- Form — submits via JS to POST/PATCH /api/workgroups -->
+            <form id="createWorkgroupForm" autocomplete="off" novalidate>
+                <input type="hidden" id="workgroupId" value="" />
+
+                <!-- Validation Error Banner -->
+                <div class="form-error-banner hidden" id="formErrorBanner">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <circle cx="8" cy="8" r="7" stroke="#dc2626" stroke-width="1.5" />
+                        <path d="M8 5v3.5M8 10.5v.5" stroke="#dc2626" stroke-width="1.5" stroke-linecap="round" />
+                    </svg>
+                    <span id="formErrorText">Please enter a workgroup name.</span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="workgroupName">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <circle cx="8" cy="8" r="6" stroke="#64748b" stroke-width="1.2" />
+                            <path d="M5.5 8l2 2 3.5-4" stroke="#64748b" stroke-width="1.2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                        Workgroup Name <span class="required">*</span>
+                    </label>
+                    <input type="text" id="workgroupName" class="form-input"
+                        placeholder="e.g. Bug Reproduction Team Alpha" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="releaseVersion">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M8 2l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4l2-4z" stroke="#64748b" stroke-width="1.2"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        Release Version <span class="required">*</span>
+                    </label>
+                    <input type="text" id="releaseVersion" class="form-input" placeholder="e.g. v2.4.1 or Sprint 12" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label form-label--engineers">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <circle cx="6" cy="5" r="2.5" stroke="#64748b" stroke-width="1.2" />
+                            <path d="M1 14c0-2.8 2.2-5 5-5" stroke="#64748b" stroke-width="1.2"
+                                stroke-linecap="round" />
+                            <circle cx="11" cy="6" r="2" stroke="#64748b" stroke-width="1.2" />
+                            <path d="M15 14c0-2.2-1.8-4-4-4" stroke="#64748b" stroke-width="1.2"
+                                stroke-linecap="round" />
+                        </svg>
+                        Add Engineers
+                    </label>
+                    <!-- Dynamic: engineer checkboxes populated by JS from GET /api/engineers -->
+                    <div class="engineers-box" id="engineersBox">
+                        <div class="engineers-empty" id="engineersEmpty">
+                            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                                <circle cx="14" cy="14" r="5" stroke="#cbd5e1" stroke-width="1.5" />
+                                <path d="M4 34c0-5.5 4.5-10 10-10" stroke="#cbd5e1" stroke-width="1.5"
+                                    stroke-linecap="round" />
+                                <circle cx="27" cy="15" r="4" stroke="#cbd5e1" stroke-width="1.5" />
+                                <path d="M36 34c0-4.4-3.6-8-8-8" stroke="#cbd5e1" stroke-width="1.5"
+                                    stroke-linecap="round" />
+                            </svg>
+                            <p class="engineers-empty-title">No engineers have registered yet.</p>
+                            <p class="engineers-empty-sub">Engineers can sign up and will appear here.</p>
+                        </div>
+                        <div class="engineers-list" id="engineersList" style="display:none;"></div>
+                    </div>
+                </div>
+
+                <div class="form-group form-group--toggle">
+                    <div>
+                        <span class="toggle-label-main">Mark as Completed</span>
+                        <span class="toggle-label-sub">Indicate this workgroup is finished</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="markCompleted" />
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" id="btnCancel">Cancel</button>
+                    <button type="submit" class="btn-submit" id="btnSubmit">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M8 2l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4l2-4z" stroke="#fff" stroke-width="1.2"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        Done — Create Workgroup
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <script src="{{ url_for('static', filename='js/authSession.js') }}"></script>
     <script src="{{ url_for('static', filename='js/bugManagement.js') }}"></script>

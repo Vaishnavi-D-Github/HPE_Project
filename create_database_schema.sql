@@ -65,6 +65,7 @@ CREATE TABLE Bugs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     priority ENUM('P0', 'P1', 'P2', 'P3', 'P4') DEFAULT 'P2',
     bug_code VARCHAR(50) NOT NULL UNIQUE,
+    bug_name VARCHAR(255),
     bug_type ENUM('repro', 'test') NOT NULL,
     engineer_id INT,
     summary VARCHAR(255),
@@ -87,6 +88,7 @@ CREATE TABLE Bug_Tests (
     id INT AUTO_INCREMENT PRIMARY KEY,
     bug_id INT,
     test_name VARCHAR(100),
+    configuration VARCHAR(50),
     FOREIGN KEY (bug_id) REFERENCES Bugs(id) ON DELETE CASCADE,
     INDEX idx_bug (bug_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

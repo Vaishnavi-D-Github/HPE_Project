@@ -18,6 +18,8 @@ class Bug(db.Model):
         nullable=False
     )
 
+    bug_name = db.Column(db.String(255), nullable=True)
+
     bug_type = db.Column(
         db.Enum('repro', 'test'),
         nullable=False

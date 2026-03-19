@@ -1,5 +1,15 @@
--- Insert Dummy Bugs (Copy-paste this into MySQL terminal)
--- Make sure you have engineers with IDs 2, 3 or change the engineer_id values
+-- Reset + Insert Dummy Bugs (copy-paste into MySQL)
+-- Make sure engineers with IDs 2 and 3 exist, or update engineer_id values.
+
+SET FOREIGN_KEY_CHECKS = 0;
+
+TRUNCATE TABLE Bug_Comments;
+TRUNCATE TABLE ML_Analysis;
+TRUNCATE TABLE Bug_stations;
+TRUNCATE TABLE Bug_Tests;
+TRUNCATE TABLE Bugs;
+
+SET FOREIGN_KEY_CHECKS = 1;
 
 -- Insert Repro Bugs
 INSERT INTO Bugs (priority, bug_code, bug_type, engineer_id, summary, station_config, resource_group, status) VALUES
@@ -23,40 +33,74 @@ INSERT INTO Bugs (priority, bug_code, bug_type, engineer_id, summary, station_co
 ('P3', 'TEST-2024-007', 'test', 2, 'Test responsive design on mobile devices', 'Config-Test-5', 'Group-Alpha', 'pending'),
 ('P4', 'TEST-2024-008', 'test', 3, 'UI accessibility compliance testing', 'Config-Test-3', 'Group-Gamma', 'scheduled');
 
--- Insert Bug Tests
-INSERT INTO Bug_Tests (bug_id, test_name) VALUES
-(9, 'Smoke Test'), (9, 'Regression Test'),
-(10, 'Security Test'), (10, 'Penetration Test'),
-(11, 'Performance Test'), (11, 'Load Test'),
-(12, 'Integration Test'), (12, 'Unit Test'),
-(13, 'API Test'), (13, 'UI Test'),
-(14, 'Regression Test'), (14, 'Performance Test'),
-(15, 'Smoke Test'), (15, 'Integration Test'),
-(16, 'Unit Test'), (16, 'API Test'),
-(17, 'Security Test'), (17, 'API Test'),
-(18, 'Load Test'), (18, 'Stress Test'),
-(19, 'Performance Test'), (19, 'Benchmark Test'),
-(20, 'Integration Test'), (20, 'API Test'),
-(21, 'Functional Test'), (21, 'Smoke Test'),
-(22, 'Compatibility Test'), (22, 'Integration Test'),
-(23, 'UI Test'), (23, 'Responsive Test'),
-(24, 'Accessibility Test'), (24, 'Compliance Test');
+-- Insert Bug Tests (resolve bug_id from bug_code)
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Smoke Test' FROM Bugs WHERE bug_code = 'REPRO-2024-001';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Regression Test' FROM Bugs WHERE bug_code = 'REPRO-2024-001';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Security Test' FROM Bugs WHERE bug_code = 'REPRO-2024-002';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Penetration Test' FROM Bugs WHERE bug_code = 'REPRO-2024-002';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Performance Test' FROM Bugs WHERE bug_code = 'REPRO-2024-003';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Load Test' FROM Bugs WHERE bug_code = 'REPRO-2024-003';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Integration Test' FROM Bugs WHERE bug_code = 'REPRO-2024-004';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Unit Test' FROM Bugs WHERE bug_code = 'REPRO-2024-004';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'API Test' FROM Bugs WHERE bug_code = 'REPRO-2024-005';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'UI Test' FROM Bugs WHERE bug_code = 'REPRO-2024-005';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Regression Test' FROM Bugs WHERE bug_code = 'REPRO-2024-006';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Performance Test' FROM Bugs WHERE bug_code = 'REPRO-2024-006';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Smoke Test' FROM Bugs WHERE bug_code = 'REPRO-2024-007';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Integration Test' FROM Bugs WHERE bug_code = 'REPRO-2024-007';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Unit Test' FROM Bugs WHERE bug_code = 'REPRO-2024-008';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'API Test' FROM Bugs WHERE bug_code = 'REPRO-2024-008';
 
--- Insert Bug Stations
-INSERT INTO Bug_stations (bug_id, station_name) VALUES
-(9, 'Station-A1'), (9, 'Station-A2'),
-(10, 'Station-B1'), (10, 'Station-B2'), (10, 'Station-B3'),
-(11, 'Station-C1'), (11, 'Station-C2'),
-(12, 'Station-D1'), (12, 'Station-D2'),
-(13, 'Station-E1'), (13, 'Station-E2'), (13, 'Station-E3'),
-(14, 'Station-F1'), (14, 'Station-F2'),
-(15, 'Station-G1'), (15, 'Station-G2'),
-(16, 'Station-H1'), (16, 'Station-H2'),
-(17, 'Test-Station-1'), (17, 'Test-Station-2'),
-(18, 'Test-Station-3'), (18, 'Test-Station-4'),
-(19, 'Test-Station-5'), (19, 'Test-Station-6'),
-(20, 'Test-Station-7'), (20, 'Test-Station-8'),
-(21, 'Test-Station-9'), (21, 'Test-Station-10'),
-(22, 'Test-Station-11'), (22, 'Test-Station-12'),
-(23, 'Test-Station-13'), (23, 'Test-Station-14'),
-(24, 'Test-Station-15'), (24, 'Test-Station-16');
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Security Test' FROM Bugs WHERE bug_code = 'TEST-2024-001';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'API Test' FROM Bugs WHERE bug_code = 'TEST-2024-001';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Load Test' FROM Bugs WHERE bug_code = 'TEST-2024-002';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Stress Test' FROM Bugs WHERE bug_code = 'TEST-2024-002';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Performance Test' FROM Bugs WHERE bug_code = 'TEST-2024-003';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Benchmark Test' FROM Bugs WHERE bug_code = 'TEST-2024-003';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Integration Test' FROM Bugs WHERE bug_code = 'TEST-2024-004';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'API Test' FROM Bugs WHERE bug_code = 'TEST-2024-004';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Functional Test' FROM Bugs WHERE bug_code = 'TEST-2024-005';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Smoke Test' FROM Bugs WHERE bug_code = 'TEST-2024-005';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Compatibility Test' FROM Bugs WHERE bug_code = 'TEST-2024-006';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Integration Test' FROM Bugs WHERE bug_code = 'TEST-2024-006';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'UI Test' FROM Bugs WHERE bug_code = 'TEST-2024-007';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Responsive Test' FROM Bugs WHERE bug_code = 'TEST-2024-007';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Accessibility Test' FROM Bugs WHERE bug_code = 'TEST-2024-008';
+INSERT INTO Bug_Tests (bug_id, test_name) SELECT id, 'Compliance Test' FROM Bugs WHERE bug_code = 'TEST-2024-008';
+
+-- Insert Bug Stations (resolve bug_id from bug_code)
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-A1' FROM Bugs WHERE bug_code = 'REPRO-2024-001';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-A2' FROM Bugs WHERE bug_code = 'REPRO-2024-001';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-B1' FROM Bugs WHERE bug_code = 'REPRO-2024-002';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-B2' FROM Bugs WHERE bug_code = 'REPRO-2024-002';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-B3' FROM Bugs WHERE bug_code = 'REPRO-2024-002';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-C1' FROM Bugs WHERE bug_code = 'REPRO-2024-003';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-C2' FROM Bugs WHERE bug_code = 'REPRO-2024-003';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-D1' FROM Bugs WHERE bug_code = 'REPRO-2024-004';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-D2' FROM Bugs WHERE bug_code = 'REPRO-2024-004';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-E1' FROM Bugs WHERE bug_code = 'REPRO-2024-005';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-E2' FROM Bugs WHERE bug_code = 'REPRO-2024-005';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-E3' FROM Bugs WHERE bug_code = 'REPRO-2024-005';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-F1' FROM Bugs WHERE bug_code = 'REPRO-2024-006';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-F2' FROM Bugs WHERE bug_code = 'REPRO-2024-006';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-G1' FROM Bugs WHERE bug_code = 'REPRO-2024-007';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-G2' FROM Bugs WHERE bug_code = 'REPRO-2024-007';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-H1' FROM Bugs WHERE bug_code = 'REPRO-2024-008';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Station-H2' FROM Bugs WHERE bug_code = 'REPRO-2024-008';
+
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Test-Station-1' FROM Bugs WHERE bug_code = 'TEST-2024-001';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Test-Station-2' FROM Bugs WHERE bug_code = 'TEST-2024-001';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Test-Station-3' FROM Bugs WHERE bug_code = 'TEST-2024-002';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Test-Station-4' FROM Bugs WHERE bug_code = 'TEST-2024-002';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Test-Station-5' FROM Bugs WHERE bug_code = 'TEST-2024-003';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Test-Station-6' FROM Bugs WHERE bug_code = 'TEST-2024-003';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Test-Station-7' FROM Bugs WHERE bug_code = 'TEST-2024-004';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Test-Station-8' FROM Bugs WHERE bug_code = 'TEST-2024-004';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Test-Station-9' FROM Bugs WHERE bug_code = 'TEST-2024-005';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Test-Station-10' FROM Bugs WHERE bug_code = 'TEST-2024-005';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Test-Station-11' FROM Bugs WHERE bug_code = 'TEST-2024-006';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Test-Station-12' FROM Bugs WHERE bug_code = 'TEST-2024-006';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Test-Station-13' FROM Bugs WHERE bug_code = 'TEST-2024-007';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Test-Station-14' FROM Bugs WHERE bug_code = 'TEST-2024-007';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Test-Station-15' FROM Bugs WHERE bug_code = 'TEST-2024-008';
+INSERT INTO Bug_stations (bug_id, station_name) SELECT id, 'Test-Station-16' FROM Bugs WHERE bug_code = 'TEST-2024-008';
