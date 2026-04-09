@@ -137,11 +137,24 @@ def get_engineer_stats():
 
 @engineer.route("/engineer/bug_management", methods=["GET"])
 def engineer_bug_management():
+    user_id = get_current_user_id()
+    role = get_current_role()
+    workgroup_id = request.args.get("workgroup_id", type=int)
+
+    if not user_id:
+        return redirect(url_for("auth.login"))
+    if role != "Engineer":
+        return redirect(url_for("auth.login"))
+
+    return render_template("engineerBugManagement.html", auth_token=get_current_auth_token())
+
+@engineer.route("/run", methods=["GET"])
+def run_page():
     if not get_current_user_id():
         return redirect(url_for("auth.login"))
     if get_current_role() != "Engineer":
         return redirect(url_for("auth.login"))
-    return render_template("engineerBugManagement.html", auth_token=get_current_auth_token())
+    return render_template("run.html", auth_token=get_current_auth_token())
 
 
 @engineer.route("/engineer_logout")

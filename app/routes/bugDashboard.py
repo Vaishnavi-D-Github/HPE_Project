@@ -9,7 +9,7 @@ from app.models.user import User
 from app.models.workgroup import Workgroup
 from app.models.workgroupAssignment import WorkgroupAssignment
 from app.auth_utils import get_current_auth_token, get_current_role, get_current_user, get_current_user_id
-from sqlalchemy import select, or_
+from sqlalchemy import select
 
 bug = Blueprint("bugDashboard", __name__)
 
@@ -26,6 +26,14 @@ def bug_management():
         return redirect(url_for("auth.login"))
 
     workgroup_id = request.args.get('workgroup_id', type=int)
+
+    # Engineers must use the engineer-specific bug management page,
+    # which includes reserve controls and engineer-only behaviors.
+    if current_role == "Engineer":
+        if workgroup_id:
+            return redirect(url_for("engineer.engineer_bug_management", workgroup_id=workgroup_id))
+        return redirect(url_for("engineer.engineer_bug_management"))
+
     workgroup = None
     
     if workgroup_id:
@@ -67,24 +75,7 @@ def get_bugs():
     query = Bug.query
 
     if workgroup_id:
-        workgroup = Workgroup.query.get(workgroup_id)
-        # Filter to engineers assigned to this workgroup ONLY.
-        # Bugs with no engineer (engineer_id IS NULL) are excluded — they cannot
-        # be linked to any engineer in the workgroup.
-        engineer_ids = db.session.query(WorkgroupAssignment.employee_id).filter(
-            WorkgroupAssignment.workgroup_id == workgroup_id
-        ).all()
-        engineer_ids = [e[0] for e in engineer_ids]
-
-        if not engineer_ids:
-            return jsonify({"repro": [], "test": []})
-
-        # Bugs must: (a) belong to an engineer in this workgroup AND
-        #            (b) match the workgroup's build/release version
-        query = query.filter(
-            Bug.engineer_id.in_(engineer_ids),
-            Bug.resource_group == workgroup.release_version,
-        )
+        query = query.filter(Bug.workgroup_id == workgroup_id)
 
         # Engineers can narrow the workgroup view to only their assigned bugs.
         if role == "Engineer" and my_only:
@@ -147,39 +138,6 @@ def get_bugs():
     })
 
 # --------------------------------------------------
-# UPDATE RESOURCE GROUP
-# --------------------------------------------------
-@bug.route("/api/bugs/<bug_code>/resource", methods=["PATCH"])
-def update_resource_group(bug_code):
-    data = request.json
-    bug = Bug.query.filter_by(bug_code=bug_code).first()
-    bug.resource_group = data.get("resourceGroup")
-    db.session.commit()
-    return jsonify({"message": "Resource group updated"})
-
-# --------------------------------------------------
-# RUN BUG NOW
-# --------------------------------------------------
-@bug.route("/api/bugs/<bug_code>/run", methods=["POST"])
-def run_bug_now(bug_code):
-
-    bug = Bug.query.filter_by(bug_code=bug_code).first()
-    bug.status = "running"
-    db.session.commit()
-    return jsonify({"message": "Bug execution started"})
-
-# --------------------------------------------------
-# RUN BUG LATER
-# --------------------------------------------------
-@bug.route("/api/bugs/<bug_code>/schedule", methods=["POST"])
-def schedule_bug(bug_code):
-
-    bug = Bug.query.filter_by(bug_code=bug_code).first()
-    bug.status = "scheduled"
-    db.session.commit()
-    return jsonify({"message": "Bug scheduled"})
-
-# --------------------------------------------------
 # BUG STATISTICS
 # --------------------------------------------------
 @bug.route("/api/bugs/stats", methods=["GET"])
@@ -204,48 +162,53 @@ def bug_stats():
         if role == 'Manager' and workgroup.manager_id != user_id:
             return jsonify({"error": "Unauthorized"}), 403
 
-    query = Bug.query
-
     if workgroup_id:
-        # Filter bugs by workgroup
-        engineer_ids = db.session.query(WorkgroupAssignment.employee_id).filter(
-            WorkgroupAssignment.workgroup_id == workgroup_id
-        ).all()
-        engineer_ids = [e[0] for e in engineer_ids]
-        
-        if not engineer_ids:
-            return jsonify({
-                "totalBugs": 0,
-                "reproBugs": 0,
-                "testBugs": 0,
-                "pendingActions": 0
-            })
-        
-        query = query.filter(Bug.engineer_id.in_(engineer_ids))
-
+        query = Bug.query.filter(Bug.workgroup_id == workgroup_id)
         if role == "Engineer" and my_only:
             query = query.filter(Bug.engineer_id == user_id)
-    elif role == "Manager":
-       engineer_ids_subq = (
+
+        total = query.count()
+        repro = query.filter(Bug.bug_type == "repro").count()
+        test = query.filter(Bug.bug_type == "test").count()
+        pending = query.filter(Bug.status == "pending").count()
+        running = query.filter(Bug.status == "running").count()
+        completed = query.filter(Bug.status == "completed").count()
+
+        return jsonify({
+            "totalBugs": total,
+            "reproBugs": repro,
+            "testBugs": test,
+            "pendingActions": pending,
+            "runningBugs": running,
+            "completedBugs": completed,
+        })
+
+    query = Bug.query
+    if role == "Manager":
+        engineer_ids_subq = (
             db.session.query(db.func.distinct(WorkgroupAssignment.employee_id))
             .join(Workgroup, WorkgroupAssignment.workgroup_id == Workgroup.id)
             .filter(Workgroup.manager_id == user_id)
             .subquery()
         )
-       query = query.filter(Bug.engineer_id.in_(engineer_ids_subq))
-
+        query = query.filter(Bug.engineer_id.in_(engineer_ids_subq))
     elif role == "Engineer":
         query = query.filter(Bug.engineer_id == user_id)
 
     total = query.count()
-    repro = query.filter_by(bug_type="repro").count()
-    test = query.filter_by(bug_type="test").count()
-    pending = query.filter_by(status="pending").count()
+    repro = query.filter(Bug.bug_type == "repro").count()
+    test = query.filter(Bug.bug_type == "test").count()
+    pending = query.filter(Bug.status == "pending").count()
+    running = query.filter(Bug.status == "running").count()
+    completed = query.filter(Bug.status == "completed").count()
+
     return jsonify({
         "totalBugs": total,
         "reproBugs": repro,
         "testBugs": test,
-        "pendingActions": pending
+        "pendingActions": pending,
+        "runningBugs": running,
+        "completedBugs": completed,
     })
 
 
@@ -418,8 +381,8 @@ def create_reservation():
     role = get_current_role()
     if not user_id:
         return jsonify({"error": "Not logged in"}), 401
-    if role != "Manager":
-        return jsonify({"error": "Only managers can reserve stations"}), 403
+    if role != "Engineer":
+        return jsonify({"error": "Only engineers can reserve stations"}), 403
 
     data = request.json
     print(f"[Reservation] Received: {data}", flush=True)
