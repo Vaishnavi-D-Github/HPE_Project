@@ -1,25 +1,43 @@
-import sqlite3
-conn = sqlite3.connect('rro_local.db')
-c = conn.cursor()
+from app import create_app, db
+from app.models.bug import Bug
+from app.models.workgroup import Workgroup
+from app.models.workgroupAssignment import WorkgroupAssignment
+from app.models.user import User
+from app.models.bug_tests import BugTest
+from app.models.bug_comments import BugComment
+from app.models.ml_analysis import MLAnalysis
 
-print('=== Workgroups ===')
-c.execute('SELECT id, Name, Release_Version, Status FROM "Workgroup_Schema"')
-for r in c.fetchall():
-    print(f'  id={r[0]} name={r[1]!r} release_version={r[2]!r} status={r[3]}')
+app = create_app()
+with app.app_context():
+    print('=== Workgroups ===')
+    for wg in Workgroup.query.all():
+        print(f'  id={wg.id} name={wg.name!r} release_version={wg.release_version!r} status={wg.status}')
 
-print()
-print('=== Bugs (resource_group) ===')
-c.execute('SELECT id, bug_code, resource_group, bug_type FROM bugs')
-for r in c.fetchall():
-    print(f'  id={r[0]} code={r[1]} resource_group={r[2]!r} type={r[3]}')
+    print()
+    print('=== Bugs → Workgroup link ===')
+    bugs = Bug.query.all()
+    null_wg = [b for b in bugs if b.workgroup_id is None]
+    print(f'  Total bugs: {len(bugs)}')
+    print(f'  Bugs WITH workgroup_id: {len(bugs) - len(null_wg)}')
+    print(f'  Bugs missing workgroup_id: {len(null_wg)}')
 
-print()
-print('=== All tables ===')
-c.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-for r in c.fetchall():
-    c2 = conn.cursor()
-    c2.execute(f'SELECT COUNT(*) FROM "{r[0]}"')
-    cnt = c2.fetchone()[0]
-    print(f'  {r[0]}: {cnt} rows')
+    print()
+    print('=== Bugs → Engineer link ===')
+    null_eng = [b for b in bugs if b.engineer_id is None]
+    print(f'  Bugs WITH engineer_id: {len(bugs) - len(null_eng)}')
+    print(f'  Bugs missing engineer_id: {len(null_eng)}')
 
-conn.close()
+    print()
+    print('=== Workgroup Assignments ===')
+    for wa in WorkgroupAssignment.query.all():
+        print(f'  assignment_id={wa.id} engineer={wa.employee.email!r} workgroup={wa.workgroup.name!r}')
+
+    print()
+    print('=== Row counts ===')
+    print(f'  Bugs: {Bug.query.count()}')
+    print(f'  Bug_Tests: {BugTest.query.count()}')
+    print(f'  Bug_Comments: {BugComment.query.count()}')
+    print(f'  ML_Analysis: {MLAnalysis.query.count()}')
+    print(f'  Users: {User.query.count()}')
+    print(f'  Workgroups: {Workgroup.query.count()}')
+    print(f'  Workgroup_Assignments: {WorkgroupAssignment.query.count()}')

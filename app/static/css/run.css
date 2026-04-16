@@ -329,7 +329,6 @@
     margin-bottom: 10px;
 }
 
-/* Width and left are set by JavaScript to match the active button exactly */
 .run-slider-track {
     position: absolute;
     top: 4px;
@@ -349,23 +348,18 @@
     font-size: 13px;
     font-weight: 600;
     color: #64748b;
-    background: transparent;
+    background: #e2e8f0;
     border: none;
     border-radius: 8px;
     cursor: pointer;
-    transition: color 0.2s;
+    transition: color 0.2s, background 0.2s;
     font-family: inherit;
     white-space: nowrap;
 }
 
 .run-slider-btn.active {
     color: #7c3aed;
-}
-
-.run-slider-hint {
-    font-size: 12.5px;
-    color: #94a3b8;
-    margin: 0;
+    background: transparent;
 }
 
 /* ── Panel animation ── */
@@ -428,7 +422,7 @@
     color: #ef4444;
 }
 
-/* ── Toggle Switch ── */
+/* ── Toggle Switch (Do Checkout) ── */
 .run-toggle-label {
     display: flex;
     align-items: center;
@@ -536,8 +530,124 @@
     transform: translateY(0);
 }
 
+/* ═══════════════════════════════════════════════════════
+   COMBINED RUN OPTIONS CARD
+   Slider is the header; panels live inside the same card.
+   ═══════════════════════════════════════════════════════ */
+
+/* Header: title block stacked above the full-width slider */
+.run-options-header {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Slider stretches to fill the full card width */
+.run-options-header .run-slider-toggle {
+    margin-bottom: 0;
+    display: flex;
+    width: 100%;
+}
+
+/* Each button takes equal space so they share the full width */
+.run-options-header .run-slider-toggle .run-slider-btn {
+    flex: 1;
+    text-align: center;
+}
+
+/* Thin divider separating the header from the panel fields */
+.run-options-divider {
+    height: 1px;
+    background: #f1f5f9;
+    margin: 20px 0;
+}
+
+/* Run history table */
+.run-history-wrap {
+    overflow-x: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+}
+
+.run-history-table {
+    width: 100%;
+    min-width: 1200px;
+    border-collapse: collapse;
+}
+
+.run-history-table thead th {
+    background: #f8fafc;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.run-history-table tbody td {
+    font-size: 12.5px;
+    color: #0f172a;
+    padding: 11px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+.run-history-ellipsis {
+    max-width: 170px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.run-history-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.run-history-empty {
+    text-align: center;
+    color: #64748b !important;
+    padding: 20px 14px !important;
+}
+
+.run-status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+}
+
+.run-status-badge--queued {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.run-status-badge--running {
+    background: #ede9fe;
+    color: #6d28d9;
+}
+
+.run-status-badge--completed {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.run-status-badge--failed {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
     .run-two-col { grid-template-columns: 1fr; }
     .run-radio-group { flex-direction: column; }
+    .run-options-header { flex-direction: column; align-items: flex-start; }
+    .run-history-wrap {
+        border-radius: 10px;
+    }
 }

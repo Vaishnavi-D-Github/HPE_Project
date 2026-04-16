@@ -21,6 +21,7 @@ from app.models.ml_analysis import MLAnalysis
 from app.models.user import User
 from app.models.workgroup import Workgroup
 from app.models.workgroupAssignment import WorkgroupAssignment
+from app.models.build import Build
 from werkzeug.security import generate_password_hash
 
 
@@ -34,41 +35,34 @@ def normalize_spaces(value):
 def parse_execution_datetime(raw_value):
     if not raw_value:
         return None
-
     clean = raw_value.strip()
     if clean.endswith(" UTC"):
         clean = clean[:-4]
-
     for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
         try:
             return datetime.strptime(clean, fmt)
         except ValueError:
             continue
-
     return None
 
 
 def parse_iso_datetime(raw_value):
     if not raw_value:
         return None
-
     clean = raw_value.strip()
     if clean.endswith("Z"):
         clean = clean[:-1]
-
     for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):
         try:
             return datetime.strptime(clean, fmt)
         except ValueError:
             continue
-
     return None
 
 
 def parse_int(raw_value):
     if raw_value is None:
         return None
-
     try:
         return int(str(raw_value).strip())
     except (TypeError, ValueError):
@@ -77,15 +71,12 @@ def parse_int(raw_value):
 
 def parse_comment_metadata(comment_text):
     parsed = {}
-
     if not comment_text:
         return parsed
-
     for line in comment_text.splitlines():
         clean_line = line.strip()
         if not clean_line or ":" not in clean_line:
             continue
-
         key, value = clean_line.split(":", 1)
         key = normalize_spaces(key)
         value = value.strip()
@@ -119,14 +110,12 @@ def parse_comment_metadata(comment_text):
 
 def map_bug_status(source_status):
     status = (source_status or "").strip().upper()
-
     if status == "REPRODUCE":
         return "running"
     if status == "OPEN":
         return "pending"
     if status in ("CLOSED", "VERIFIED"):
         return "completed"
-
     return "pending"
 
 
@@ -135,15 +124,10 @@ def map_bug_type(source_status):
     return "repro" if status == "REPRODUCE" else "test"
 
 
-def get_metadata_comment(comments):
-    if not comments:
-        return {}
-
-    first = comments[0]
-    if isinstance(first, dict):
-        return first
-
-    return {}
+def map_severity(raw):
+    valid = {"trivial", "normal", "major", "critical", "enhancement"}
+    val = (raw or "normal").strip().lower()
+    return val if val in valid else "normal"
 
 
 def ingest(workgroup_id_override=None):
@@ -164,7 +148,6 @@ def ingest(workgroup_id_override=None):
             db.session.flush()
             print(f"Created manager: {manager_email}")
         else:
-            # For debugging convenience, reset password to known value
             manager.password = generate_password_hash("Admin@123")
             db.session.add(manager)
             print(f"Updated manager password: {manager_email}")
@@ -174,13 +157,15 @@ def ingest(workgroup_id_override=None):
         if not workgroup:
             workgroup = Workgroup(
                 name="Main Workgroup",
-                release_version="V1.0", # Shorter version to fit String(10)
+                release_version="V1.0",
                 status="Active",
                 manager_id=manager.id
             )
             db.session.add(workgroup)
             db.session.flush()
             print(f"Created workgroup: {workgroup.name}")
+
+        target_workgroup_id = workgroup_id_override if workgroup_id_override is not None else workgroup.id
 
         with open(MOCK_BUGS_FILE, "r", encoding="utf-8-sig") as handle:
             bug_rows = json.load(handle)
@@ -199,7 +184,17 @@ def ingest(workgroup_id_override=None):
 
                 source_status = row.get("Status")
                 assignee_email = (row.get("Assignee") or "").strip()
+                build_version = (row.get("Build") or "").strip()
 
+                # Ensure Build record exists
+                if build_version:
+                    build = db.session.get(Build, build_version)
+                    if not build:
+                        build = Build(version=build_version)
+                        db.session.add(build)
+                        db.session.flush()
+
+                # Resolve or create engineer
                 engineer = None
                 if assignee_email:
                     engineer = User.query.filter(db.func.lower(User.email) == assignee_email.lower()).first()
@@ -215,55 +210,62 @@ def ingest(workgroup_id_override=None):
                         db.session.add(engineer)
                         db.session.flush()
                         print(f"Created engineer: {assignee_email}")
-                    
-                    # Ensure engineer is assigned to the workgroup
+
                     assignment = WorkgroupAssignment.query.filter_by(
                         workgroup_id=workgroup.id,
                         employee_id=engineer.id
                     ).first()
                     if not assignment:
-                        assignment = WorkgroupAssignment(
+                        db.session.add(WorkgroupAssignment(
                             workgroup_id=workgroup.id,
                             employee_id=engineer.id
-                        )
-                        db.session.add(assignment)
+                        ))
                         print(f"Assigned {assignee_email} to {workgroup.name}")
 
-                existing = Bug.query.filter_by(bug_code=bug_code).first()
+                # Match workgroup by release_version == build_id, fallback to override/default
+                matched_wg = Workgroup.query.filter_by(release_version=build_version).first()
+                resolved_workgroup_id = (
+                    workgroup_id_override
+                    if workgroup_id_override is not None
+                    else (matched_wg.id if matched_wg else workgroup.id)
+                )
 
-                source_status = row.get("Status")
-                assignee_email = (row.get("Assignee") or "").strip()
-
-                engineer = None
-                if assignee_email:
-                    engineer = User.query.filter(db.func.lower(User.email) == assignee_email.lower()).first()
+                existing = Bug.query.filter_by(bug_id=bug_code).first()
 
                 if existing:
-                    print(f"Skipping bug {bug_code} -- already exists")
+                    print(f"Updating bug {bug_code}")
                     skipped_bugs += 1
                     bug = existing
+                    bug.engineer_id = engineer.id if engineer else None
+                    bug.workgroup_id = resolved_workgroup_id
+                    db.session.add(bug)
                 else:
                     bug = Bug(
-                        bug_code=bug_code,
-                        bug_name=row.get("Bug Name", None),
+                        bug_id=bug_code,
+                        bug_name=row.get("Bug Name"),
                         priority=(row.get("Priority") or "P2").strip(),
                         status=map_bug_status(source_status),
                         engineer_id=engineer.id if engineer else None,
+                        assignee_email=assignee_email or None,
                         bug_type=map_bug_type(source_status),
-                        resource_group=workgroup.release_version, # Fix: match workgroup version
-                        workgroup_id=workgroup_id_override,  # Set workgroup FK if provided
-                        summary=(row.get("Component") or "").strip() or None,
+                        build_id=build_version,
+                        workgroup_id=resolved_workgroup_id,
+                        product=(row.get("Product") or "").strip() or None,
+                        component=(row.get("Component") or "").strip() or None,
+                        reporter=(row.get("Reporter") or "").strip() or None,
+                        severity=map_severity(row.get("Severity")),
+                        whiteboard=(row.get("Whiteboard") or "").strip() or None,
+                        developer_progress=(row.get("Developer Progress") or "").strip() or None,
                     )
                     db.session.add(bug)
                     db.session.flush()
                     inserted_bugs += 1
 
                 comments = row.get("Comments") or []
-                metadata_comment = get_metadata_comment(comments)
-                comment_zero_text = metadata_comment.get("text", "") if isinstance(metadata_comment, dict) else ""
+                metadata_comment = comments[0] if comments and isinstance(comments[0], dict) else {}
+                comment_zero_text = metadata_comment.get("text", "")
 
-                # Always refresh tests even if bug already existed.
-                BugTest.query.filter_by(bug_id=bug.id).delete()
+                BugTest.query.filter_by(bug_id=bug.bug_id).delete()
 
                 tests_array = row.get("Tests", [])
                 if not tests_array:
@@ -277,62 +279,39 @@ def ingest(workgroup_id_override=None):
 
                 for idx, test_entry in enumerate(tests_array):
                     test_entry = test_entry if isinstance(test_entry, dict) else {}
-                    if idx == 0:
-                        # First test includes full parsed metadata from comment[0].text.
-                        parsed = parse_comment_metadata(comment_zero_text)
-                    else:
-                        parsed = {}
-
+                    test_name = test_entry.get("test_name")
+                    if not test_name:
+                        continue
                     bug_test = BugTest(
-                        bug_id=bug.id,
-                        test_name=test_entry.get("test_name"),
+                        bug_id=bug.bug_id,
+                        test_name=test_name,
                         station_name=test_entry.get("station_name"),
-                        build_version=test_entry.get("build_version"),
+                        build_id=test_entry.get("build_version"),
                         configuration=test_entry.get("configuration"),
-                        test_plan_name=parsed.get("test_plan_name"),
-                        test_ring_name=parsed.get("test_ring_name"),
-                        execution_start=parsed.get("execution_start"),
-                        execution_end=parsed.get("execution_end"),
-                        controller_types=parsed.get("controller_types"),
-                        number_of_nodes=parsed.get("number_of_nodes"),
-                        failure_type=parsed.get("failure_type"),
-                        nfs_path=parsed.get("nfs_path"),
-                        odin_link=parsed.get("odin_link"),
-                        signature=parsed.get("signature"),
                     )
                     db.session.add(bug_test)
                     tests_created += 1
 
-                if existing:
-                    bug.bug_name = row.get("Bug Name", None)
-                    bug.engineer_id = engineer.id if engineer else None
-                    bug.resource_group = workgroup.release_version
-                    db.session.add(bug)
-
                 if not existing:
                     for comment in comments:
-                        comment_obj = BugComment(
-                            bug_id=bug.id,
-                            comment_bugzilla_id=parse_int(comment.get("id")) if isinstance(comment, dict) else None,
+                        db.session.add(BugComment(
+                            bug_id=bug.bug_id,
                             creator=(comment.get("creator") if isinstance(comment, dict) else None),
                             creation_time=parse_iso_datetime(comment.get("creation_time")) if isinstance(comment, dict) else None,
                             text=(comment.get("text") if isinstance(comment, dict) else None),
-                        )
-                        db.session.add(comment_obj)
+                        ))
                         created_comments += 1
 
-                    ml_analysis = MLAnalysis(
-                        bug_id=bug.id,
+                    db.session.add(MLAnalysis(
+                        bug_id=bug.bug_id,
                         repro_actions=None,
                         config_changes=None,
                         repro_readiness=None,
                         summary=None,
-                    )
-                    db.session.add(ml_analysis)
+                    ))
                     created_ml += 1
 
             db.session.commit()
-
             print("Ingest complete.")
             print(f"  Bugs inserted: {inserted_bugs}")
             print(f"  Bugs skipped:  {skipped_bugs}")
@@ -347,11 +326,6 @@ def ingest(workgroup_id_override=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ingest bugs from mock_bugs.json")
-    parser.add_argument(
-        "--workgroup-id",
-        type=int,
-        default=None,
-        help="Optional workgroup ID to associate bugs with"
-    )
+    parser.add_argument("--workgroup-id", type=int, default=None)
     args = parser.parse_args()
     ingest(workgroup_id_override=args.workgroup_id)

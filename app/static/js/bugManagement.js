@@ -200,7 +200,51 @@ async function loadBugsData() {
 
 /** Refresh all dynamic data (called after mutations) */
 async function refreshAll() {
-    await Promise.all([loadBugsData()]);
+    await Promise.all([loadBugsData(), loadReservationsData()]);
+}
+
+async function loadReservationsData() {
+    const reservationsBody = document.getElementById('reservationsBody');
+    const reservationsCount = document.getElementById('reservationsCount');
+
+    if (!reservationsBody) return;
+
+    const reservationsParams = new URLSearchParams();
+    if (activeWorkgroupId) reservationsParams.set('workgroup_id', activeWorkgroupId);
+    const reservationsQs = reservationsParams.toString();
+    const data = await apiFetch(reservationsQs ? `/api/reservations?${reservationsQs}` : '/api/reservations');
+    const reservations = Array.isArray(data?.reservations) ? data.reservations : [];
+
+    if (!reservations.length) {
+        reservationsBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#64748b;">No reservations yet</td></tr>';
+        if (reservationsCount) reservationsCount.textContent = '0 reservations';
+        return;
+    }
+
+    reservationsBody.innerHTML = reservations.map((r) => {
+        const isByName = r.type === 'by_name';
+        const modeLabel = isByName ? 'By Name' : 'By Config';
+        const primary = isByName ? (r.bug_id || '—') : (r.resource_group || '—');
+        const details = isByName
+            ? ((r.stations || []).join(', ') || '—')
+            : `Nodes: ${r.number_of_nodes ?? '—'}, PDs: ${r.number_of_pds ?? '—'}, Type: ${r.rc ? 'RC' : 'Non-RC'}${r.code_floor ? `, Floor: ${r.code_floor}` : ''}`;
+        const createdAt = r.created_at ? new Date(r.created_at).toLocaleString() : '—';
+        const detailsEscaped = escapeHtml(String(details));
+
+        return `
+            <tr>
+                <td>${escapeHtml(String(modeLabel))}</td>
+                <td>${escapeHtml(String(primary))}</td>
+                <td class="reservation-details-cell" title="${detailsEscaped}">${detailsEscaped}</td>
+                <td>${escapeHtml(String(createdAt))}</td>
+            </tr>
+        `;
+    }).join('');
+
+    if (reservationsCount) {
+        const count = reservations.length;
+        reservationsCount.textContent = `${count} ${count === 1 ? 'reservation' : 'reservations'}`;
+    }
 }
 
 /* =========================================
@@ -282,8 +326,7 @@ function generateBugsTableRows(bugs) {
 
         return `
         <tr class="bug-row"
-            data-bug-db-id="${escapeHtml(bug.db_id)}"
-            data-bug-code="${escapeHtml(bug.id)}"
+            data-bug-id="${escapeHtml(bug.id)}"
             data-bug-name="${escapeHtml(bug.bug_name || '—')}"
             data-priority="${escapeHtml(bug.priority || 'P2')}"
             data-engineer-name="${escapeHtml(bug.engineer_name || 'Unassigned')}"
@@ -295,6 +338,9 @@ function generateBugsTableRows(bugs) {
             <td><span class="priority-badge ${priorityClass}">${escapeHtml(bug.priority || 'P2')}</span></td>
             <td>
                 <div class="bug-id-main">${escapeHtml(bug.id)}</div>
+            </td>
+            <td>
+                <div class="bug-build-main">${escapeHtml(bug.build || '—')}</div>
             </td>
             <td class="bug-name-cell" title="${escapeHtml(bugNameFull)}">${escapeHtml(bugNameFull)}</td>
             <td class="engineer-cell">${escapeHtml(bug.engineer_name || 'Unassigned')}</td>
@@ -335,7 +381,6 @@ function buildTestsTableHtml(testsPayload) {
             <tr>
                 <td>${escapeHtml(t?.test_name || '—')}</td>
                 <td>${escapeHtml(t?.station_name || '—')}</td>
-                <td>${escapeHtml(t?.build_version || '—')}</td>
                 <td>${escapeHtml(t?.configuration || '—')}</td>
             </tr>
         `).join('')
@@ -354,7 +399,6 @@ function buildTestsTableHtml(testsPayload) {
                 <tr>
                     <th>Test</th>
                     <th>Station Name</th>
-                    <th>Build</th>
                     <th>Configuration</th>
                 </tr>
             </thead>
@@ -405,10 +449,10 @@ function buildMlAnalysisSectionHtml(analysisPayload) {
     `;
 }
 
-function generateExpansionHtml(bugCode, testsPayload, analysisPayload) {
+function generateExpansionHtml(bugId, testsPayload, analysisPayload) {
     return `
-        <tr class="expansion-row" data-expansion-for="${escapeHtml(bugCode)}">
-            <td colspan="5">
+        <tr class="expansion-row" data-expansion-for="${escapeHtml(bugId)}">
+            <td colspan="6">
                 ${buildTestsTableHtml(testsPayload)}
                 ${buildMlAnalysisSectionHtml(analysisPayload)}
             </td>
@@ -417,14 +461,14 @@ function generateExpansionHtml(bugCode, testsPayload, analysisPayload) {
 }
 
 async function toggleBugExpansion(row) {
-    const bugCode = row.dataset.bugCode;
+    const bugId = row.dataset.bugId;
     const testsTrigger = row.querySelector('.tests-trigger');
     const chevron = row.querySelector('.expand-chevron');
 
     if (row.dataset.expanded === 'true') {
         const existingRows = Array.from(row.parentElement.querySelectorAll('tr[data-expansion-for]'));
         existingRows
-            .filter(expansionRow => expansionRow.dataset.expansionFor === bugCode)
+            .filter(expansionRow => expansionRow.dataset.expansionFor === bugId)
             .forEach(expansionRow => expansionRow.remove());
 
         row.dataset.expanded = 'false';
@@ -437,18 +481,16 @@ async function toggleBugExpansion(row) {
     if (testsTrigger) testsTrigger.classList.add('open');
     if (chevron) chevron.classList.add('open');
 
-    const dbId = row.dataset.bugDbId;
-
     const [testsPayload, analysisPayload] = await Promise.all([
-        apiFetch('/api/bugs/' + dbId + '/tests'),
-        apiFetch('/api/bugs/' + dbId + '/analysis')
+        apiFetch('/api/bugs/' + bugId + '/tests'),
+        apiFetch('/api/bugs/' + bugId + '/analysis')
     ]);
 
     if (row.dataset.expanded !== 'true') {
         return;
     }
 
-    const expansionHtml = generateExpansionHtml(bugCode, testsPayload, analysisPayload);
+    const expansionHtml = generateExpansionHtml(bugId, testsPayload, analysisPayload);
     row.insertAdjacentHTML('afterend', expansionHtml);
 }
 
@@ -513,7 +555,7 @@ function renderSearchDropdown(suggestions, query) {
         <div class="search-dropdown-item"
              data-type="${escapeHtml(s.type)}"
              data-value="${escapeHtml(s.value)}"
-             data-bugcode="${escapeHtml(s.bug_code)}">
+             data-bugid="${escapeHtml(s.bug_id)}">
             <span class="search-dropdown-tag ${getTagClass(s.type)}">${escapeHtml(s.type)}</span>
             <span class="search-dropdown-value">${highlightMatch(s.value, query)}</span>
         </div>
@@ -685,6 +727,7 @@ async function init() {
     await loadCurrentUser();
     updateOwnershipFilterUi();
     await loadBugsData();
+    await loadReservationsData();
 }
 
 document.addEventListener('DOMContentLoaded', init);
@@ -769,8 +812,32 @@ function resetReserveForm() {
     reserveDom.stationDropdown?.classList.add('hidden');
 }
 
+function clearByNameFormValues() {
+    selectedStations = [];
+    renderStationTags();
+
+    if (reserveDom.bugIdInput) reserveDom.bugIdInput.value = '';
+    if (reserveDom.stationInput) reserveDom.stationInput.value = '';
+    if (reserveDom.specifyStation) reserveDom.specifyStation.checked = false;
+    if (reserveDom.stationManual) reserveDom.stationManual.value = '';
+    if (reserveDom.specifyStationGroup) reserveDom.specifyStationGroup.classList.add('hidden');
+    if (reserveDom.stationDropdownGroup) reserveDom.stationDropdownGroup.classList.remove('hidden');
+    reserveDom.bugIdDropdown?.classList.add('hidden');
+    reserveDom.stationDropdown?.classList.add('hidden');
+}
+
+function clearByConfigFormValues() {
+    if (reserveDom.resourceGroup) reserveDom.resourceGroup.value = '';
+    if (reserveDom.numNodes) reserveDom.numNodes.value = '';
+    if (reserveDom.codeFloor) reserveDom.codeFloor.value = '';
+    if (reserveDom.numPDs) reserveDom.numPDs.value = '';
+    const rcNo = document.querySelector('input[name="reserveRC"][value="no"]');
+    if (rcNo) rcNo.checked = true;
+}
+
 /* ── Sliding Toggle ── */
 function switchReserveTab(tab) {
+    const previousTab = reserveActiveTab;
     reserveActiveTab = tab;
     reserveDom.tabByName.classList.toggle('active', tab === 'byName');
     reserveDom.tabByConfig.classList.toggle('active', tab === 'byConfig');
@@ -779,6 +846,14 @@ function switchReserveTab(tab) {
     // Slide the indicator
     if (reserveDom.toggleSlider) {
         reserveDom.toggleSlider.classList.toggle('right', tab === 'byConfig');
+    }
+
+    if (previousTab !== tab) {
+        if (tab === 'byConfig') {
+            clearByNameFormValues();
+        } else {
+            clearByConfigFormValues();
+        }
     }
 }
 
@@ -861,9 +936,12 @@ function renderStationTags() {
 
 /* ── Populate Dropdowns ── */
 async function populateReserveDropdowns() {
-    // Bug IDs from API (Engineer's own bugs)
+    // Bug IDs from API (Engineer's own bugs, scoped to workgroup if active)
     try {
-        const myBugsData = await apiFetch('/api/bugs?my_only=true');
+        const bugsParams = new URLSearchParams();
+        bugsParams.set('my_only', 'true');
+        if (activeWorkgroupId) bugsParams.set('workgroup_id', activeWorkgroupId);
+        const myBugsData = await apiFetch(`/api/bugs?${bugsParams.toString()}`);
         if (myBugsData) {
             allBugOptions = [...(myBugsData.repro || []), ...(myBugsData.test || [])].map(b => ({ id: b.id, name: b.bug_name }));
         } else {
@@ -967,14 +1045,6 @@ async function handleReserveSubmit() {
                 document.getElementById('stationCombobox')?.classList.add('input-error');
             }
             isValid = false;
-        } else if (specifyMode) {
-            const invalidStations = stations.filter(s => !allStationOptions.some(opt => opt.toLowerCase() === s.toLowerCase()));
-            if (invalidStations.length > 0) {
-                document.getElementById('errStationManual').textContent = `Invalid stations: ${invalidStations.join(', ')}. Use commas to separate multiple valid stations.`;
-                document.getElementById('errStationManual').classList.add('visible');
-                reserveDom.stationManual?.classList.add('input-error');
-                isValid = false;
-            }
         }
 
         if (!isValid) return;
@@ -1042,6 +1112,9 @@ async function handleReserveSubmit() {
         const result = await response.json();
         showToast('Reservation submitted successfully!', 'success');
         closeReserveModal();
+        await loadReservationsData();
+        // Scroll reservations table into view so engineer sees the update
+        document.getElementById('reservationsBody')?.closest('table')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (err) {
         console.error("Reserve submit failed", err);
         let globalErr = document.getElementById('errReserveGlobal');
@@ -1124,9 +1197,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const dropdownGroup = document.getElementById('stationDropdownGroup');
             const manualGroup = document.getElementById('specifyStationGroup');
             if (specifyChk.checked) {
+                selectedStations = [];
+                renderStationTags();
+                if (reserveDom.stationInput) reserveDom.stationInput.value = '';
+                document.getElementById('errStation')?.classList.remove('visible');
+                document.getElementById('stationCombobox')?.classList.remove('input-error');
                 dropdownGroup?.classList.add('hidden');
                 manualGroup?.classList.remove('hidden');
             } else {
+                if (reserveDom.stationManual) reserveDom.stationManual.value = '';
+                document.getElementById('errStationManual')?.classList.remove('visible');
+                reserveDom.stationManual?.classList.remove('input-error');
                 dropdownGroup?.classList.remove('hidden');
                 manualGroup?.classList.add('hidden');
             }
